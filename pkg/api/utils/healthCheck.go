@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
 )
@@ -26,6 +27,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 func RunHealthEndpoint(port string) {
 	http.HandleFunc("/health", healthHandler)
+	http.Handle("/metrics", promhttp.Handler())
 	err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 	if err != nil {
 		log.Println(err)
