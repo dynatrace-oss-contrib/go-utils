@@ -2,11 +2,13 @@ package v0_2_0
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/google/uuid"
+	"github.com/keptn/go-utils/config"
 	"github.com/keptn/go-utils/pkg/api/models"
 	"github.com/keptn/go-utils/pkg/common/strutils"
 	"github.com/keptn/go-utils/pkg/lib/keptn"
@@ -323,13 +325,13 @@ func EventDataAs(in models.KeptnContextExtendedCE, out interface{}) error {
 
 // KeptnEvent creates a builder for a new KeptnContextExtendedCE
 func KeptnEvent(eventType string, source string, payload interface{}) *KeptnEventBuilder {
-
+	cfg := config.GetKeptnGoUtilsConfig()
 	ce := models.KeptnContextExtendedCE{
 		ID:                 uuid.NewString(),
 		Contenttype:        cloudevents.ApplicationJSON,
 		Data:               payload,
 		Source:             strutils.Stringp(source),
-		Shkeptnspecversion: defaultKeptnSpecVersion,
+		Shkeptnspecversion: cfg.ShKeptnSpecVersion,
 		Specversion:        defaultSpecVersion,
 		Time:               time.Now().UTC(),
 		Type:               strutils.Stringp(eventType),
