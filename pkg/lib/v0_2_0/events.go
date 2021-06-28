@@ -24,7 +24,6 @@ const MAX_SEND_RETRIES = 3
 const DefaultHTTPEventEndpoint = "http://localhost:8081/event"
 
 const defaultSpecVersion = "1.0"
-const defaultKeptnSpecVersion = "0.2.1"
 
 const keptnEventTypePrefix = "sh.keptn.event."
 const keptnTriggeredEventSuffix = ".triggered"
