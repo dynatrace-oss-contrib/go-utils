@@ -7,6 +7,6 @@ cd "$SCRIPT_FULL_PATH" || return
 
 echo "🔍 Analyzing dependencies in module go-utils"
 
-( cd .. || return ; go list -m -json all | go-licence-detector -depsTemplate=.licences/templates/dependencies.md.tmpl -depsOut=.licences/go-utils-dependencies.md )
+( cd .. || return ; go list -m -json all | go-licence-detector -depsTemplate=.licences/templates/dependencies.csv.tmpl -depsOut=.licences/dependencies.txt )
 
-echo "👍 done"
+echo "👍 done. written results to ./dependencies.txt"
