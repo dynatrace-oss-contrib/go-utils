@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/keptn/go-utils/pkg/common/retry"
@@ -60,6 +61,8 @@ func NewHealthHandler(opts ...HealthHandlerOption) *HealthHandler {
 type HealthHandlerOption func(handler *HealthHandler)
 type ReadyCheck func(handler *HealthHandler)
 
+// TryGETReadyCheck is an implemntation of a ReadyCheck function which tries to
+// perform a HTTP GET request on the given URL
 func TryGETReadyCheck(url string) func(handler *HealthHandler) {
 	return func(handler *HealthHandler) {
 		retry.Retry(func() error {
@@ -72,15 +75,21 @@ func TryGETReadyCheck(url string) func(handler *HealthHandler) {
 	}
 }
 
-func (h *HealthHandler) RunWithReadyCheck(readyCheck ReadyCheck) {
+// RunWithReadyCheck runs the HealthHandler with the given ready check
+func (h *HealthHandler) RunWithReadyCheck(ctx context.Context, readyCheck ReadyCheck) {
 	http.HandleFunc("/ready", h.readyHandler)
 	http.HandleFunc("/health", h.healthHandler)
 
 	go func() {
-		err := http.ListenAndServe(fmt.Sprintf(":%d", 10998), nil)
+		server := &http.Server{Addr: fmt.Sprintf(":%d", h.port), Handler: nil}
+		err := server.ListenAndServe()
 		if err != nil {
 			log.Println(err)
 		}
+		go func() {
+			<-ctx.Done()
+			server.Shutdown(ctx)
+		}()
 	}()
 
 	go func() {
