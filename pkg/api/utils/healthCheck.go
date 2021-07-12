@@ -69,10 +69,15 @@ func WithPort(port uint) HealthHandlerOption {
 
 type ReadyCheck func() bool
 
-func TryGETReadyCheck(url string) func() bool {
+func TryGETReadyCheck(urls ...string) func() bool {
 	return func() bool {
-		_, err := http.Get(url)
-		return err == nil
+		for _, url := range urls {
+			_, err := http.Get(url)
+			if err != nil {
+				return false
+			}
+		}
+		return true
 	}
 }
 
