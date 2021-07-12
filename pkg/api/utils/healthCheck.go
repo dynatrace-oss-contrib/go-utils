@@ -4,11 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/keptn/go-utils/pkg/common/retry"
 	"log"
 	"net/http"
-	"sync/atomic"
-	"time"
 )
 
 type StatusBody struct {
@@ -41,16 +38,14 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 const defaultHealthCheckPort = 10998
 
 type HealthHandler struct {
-	ready *atomic.Value
-	port  uint
+	port       uint
+	readyCheck ReadyCheck
 }
 
 func NewHealthHandler(opts ...HealthHandlerOption) *HealthHandler {
-	r := &atomic.Value{}
-	r.Store(0)
 	h := &HealthHandler{
-		ready: r,
-		port:  defaultHealthCheckPort,
+		port:       defaultHealthCheckPort,
+		readyCheck: func() bool { return true },
 	}
 	for _, o := range opts {
 		o(h)
@@ -59,24 +54,29 @@ func NewHealthHandler(opts ...HealthHandlerOption) *HealthHandler {
 }
 
 type HealthHandlerOption func(handler *HealthHandler)
-type ReadyCheck func(handler *HealthHandler)
 
-// TryGETReadyCheck is an implemntation of a ReadyCheck function which tries to
-// perform a HTTP GET request on the given URL
-func TryGETReadyCheck(url string) func(handler *HealthHandler) {
+func WithReadyCheck(fn func() bool) HealthHandlerOption {
 	return func(handler *HealthHandler) {
-		retry.Retry(func() error {
-			_, err := http.Get(url)
-			if err == nil {
-				handler.Ready()
-			}
-			return err
-		}, retry.DelayBetweenRetries(1*time.Second))
+		handler.readyCheck = fn
 	}
 }
 
-// RunWithReadyCheck runs the HealthHandler with the given ready check
-func (h *HealthHandler) RunWithReadyCheck(ctx context.Context, readyCheck ReadyCheck) {
+func WithPort(port uint) HealthHandlerOption {
+	return func(handler *HealthHandler) {
+		handler.port = port
+	}
+}
+
+type ReadyCheck func() bool
+
+func TryGETReadyCheck(url string) func() bool {
+	return func() bool {
+		_, err := http.Get(url)
+		return err == nil
+	}
+}
+
+func (h *HealthHandler) Run(ctx context.Context) {
 	http.HandleFunc("/ready", h.readyHandler)
 	http.HandleFunc("/health", h.healthHandler)
 
@@ -90,10 +90,6 @@ func (h *HealthHandler) RunWithReadyCheck(ctx context.Context, readyCheck ReadyC
 			<-ctx.Done()
 			server.Shutdown(ctx)
 		}()
-	}()
-
-	go func() {
-		readyCheck(h)
 	}()
 }
 
@@ -111,13 +107,9 @@ func (h *HealthHandler) healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HealthHandler) readyHandler(w http.ResponseWriter, r *http.Request) {
-	if val, ok := h.ready.Load().(int); ok && val == 1 {
+	if h.readyCheck() {
 		w.WriteHeader(http.StatusOK)
 	} else {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
-}
-
-func (h *HealthHandler) Ready() {
-	h.ready.Store(1)
 }
