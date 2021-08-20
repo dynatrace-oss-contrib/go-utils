@@ -5,14 +5,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/cloudevents/sdk-go/v2/client"
 	"github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/google/uuid"
 	"github.com/keptn/go-utils/config"
 	"github.com/keptn/go-utils/pkg/api/models"
+	"github.com/keptn/go-utils/pkg/common/observability"
 	"github.com/keptn/go-utils/pkg/common/strutils"
 	"github.com/keptn/go-utils/pkg/lib/keptn"
-	"strings"
-	"time"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	httpprotocol "github.com/cloudevents/sdk-go/v2/protocol/http"
@@ -48,12 +53,23 @@ func NewHTTPEventSender(endpoint string) (*HTTPEventSender, error) {
 	if endpoint == "" {
 		endpoint = DefaultHTTPEventEndpoint
 	}
-	p, err := cloudevents.NewHTTP()
+	p, err := cloudevents.NewHTTP(
+		cloudevents.WithRoundTripper(otelhttp.NewTransport(http.DefaultTransport)),
+		cloudevents.WithMiddleware(func(next http.Handler) http.Handler {
+			return otelhttp.NewHandler(next, "incoming-event") //TODO: Define better naming for this?
+		}),
+	)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to create protocol: %s", err.Error())
 	}
 
-	c, err := cloudevents.NewClient(p, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
+	c, err := cloudevents.NewClient(
+		p, cloudevents.WithTimeNow(),
+		cloudevents.WithUUIDs(),
+		client.WithObservabilityService(observability.NewOTelObservabilityService()),
+	)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client, %s", err.Error())
 	}

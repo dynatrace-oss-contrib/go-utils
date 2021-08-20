@@ -1,6 +1,11 @@
 package v0_2_0
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
 	"github.com/keptn/go-utils/config"
 	"github.com/keptn/go-utils/pkg/api/models"
 	api "github.com/keptn/go-utils/pkg/api/utils"
@@ -8,10 +13,11 @@ import (
 	"github.com/keptn/go-utils/pkg/lib/keptn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-	"time"
+	"go.opentelemetry.io/otel"
+
+	"go.opentelemetry.io/otel/codes"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
@@ -39,6 +45,9 @@ func getKeptnFields(ts *httptest.Server) fields {
 }
 
 func TestKeptn_SendCloudEventWithRetry(t *testing.T) {
+	sr := tracetest.NewSpanRecorder()
+	otel.SetTracerProvider(sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr)))
+
 	failOnFirstTry := true
 	ts := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -88,6 +97,12 @@ func TestKeptn_SendCloudEventWithRetry(t *testing.T) {
 			if err := k.SendCloudEvent(tt.args.event); (err != nil) != tt.wantErr {
 				t.Errorf("SendCloudEvent() error = %v, wantErr %v", err, tt.wantErr)
 			}
+			spans := sr.Ended()
+			assert.Len(t, spans, 2)
+
+			// the first span should have been recorded as error
+			assert.Equal(t, codes.Error, spans[0].Status().Code)
+			assert.Equal(t, codes.Unset, spans[1].Status().Code)
 		})
 	}
 }

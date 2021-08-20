@@ -7,8 +7,10 @@ import (
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/cloudevents/sdk-go/v2/observability"
 	"github.com/cloudevents/sdk-go/v2/protocol"
+	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -46,11 +48,7 @@ func (n OTelObservabilityService) RecordCallingInvoker(ctx context.Context, even
 	}
 
 	return ctx, func(errOrResult error) {
-		if protocol.IsACK(errOrResult) {
-		} else {
-			span.RecordError(errOrResult)
-		}
-
+		recordSpanError(span, errOrResult)
 		span.End()
 	}
 }
@@ -64,11 +62,7 @@ func (n OTelObservabilityService) RecordSendingEvent(ctx context.Context, event 
 	}
 
 	return ctx, func(errOrResult error) {
-		if protocol.IsACK(errOrResult) {
-		} else {
-			span.RecordError(errOrResult)
-		}
-
+		recordSpanError(span, errOrResult)
 		span.End()
 	}
 }
@@ -82,11 +76,7 @@ func (n OTelObservabilityService) RecordRequestEvent(ctx context.Context, event 
 	}
 
 	return ctx, func(errOrResult error, event *cloudevents.Event) {
-		if protocol.IsACK(errOrResult) {
-		} else {
-			span.RecordError(errOrResult)
-		}
-
+		recordSpanError(span, errOrResult)
 		span.End()
 	}
 }
@@ -138,4 +128,20 @@ func eventSpanAttributes(e *cloudevents.Event) []attribute.KeyValue {
 		attr = append(attr, attribute.String(observability.DatacontenttypeAttr, dct))
 	}
 	return attr
+}
+
+func recordSpanError(span trace.Span, errOrResult error) {
+	if protocol.IsACK(errOrResult) {
+		return
+	}
+
+	var httpResult *cehttp.Result
+	if cloudevents.ResultAs(errOrResult, &httpResult) {
+		span.RecordError(httpResult)
+		if httpResult.StatusCode > 0 {
+			span.SetStatus(semconv.SpanStatusFromHTTPStatusCode(httpResult.StatusCode))
+		}
+	} else {
+		span.RecordError(errOrResult)
+	}
 }
