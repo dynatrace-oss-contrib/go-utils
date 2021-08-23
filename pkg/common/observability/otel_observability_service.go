@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	// TODO: What should we put here
+	// TODO: What should we put here?
 	instrumentationName = "github.com/keptn/go-utils/observability/cloudevents"
 )
 
@@ -33,7 +33,7 @@ func (n OTelObservabilityService) InboundContextDecorators() []func(context.Cont
 // Called by cloudevents internally when an invalid event was received
 func (n OTelObservabilityService) RecordReceivedMalformedEvent(ctx context.Context, err error) {
 
-	_, span := n.Tracer.Start(ctx, observability.ClientSpanName)
+	_, span := n.Tracer.Start(ctx, observability.ClientSpanName, trace.WithAttributes(attribute.String("method", "RecordReceivedMalformedEvent")))
 	span.RecordError(err)
 	span.End()
 }
@@ -44,7 +44,7 @@ func (n OTelObservabilityService) RecordCallingInvoker(ctx context.Context, even
 	ctx, span := n.Tracer.Start(ctx, observability.ClientSpanName)
 
 	if span.IsRecording() {
-		span.SetAttributes(eventSpanAttributes(event)...)
+		span.SetAttributes(eventSpanAttributes(event, "RecordCallingInvoker")...)
 	}
 
 	return ctx, func(errOrResult error) {
@@ -58,7 +58,7 @@ func (n OTelObservabilityService) RecordSendingEvent(ctx context.Context, event 
 
 	// TODO: Should we add more things here? What about sensitive information?
 	if span.IsRecording() {
-		span.SetAttributes(eventSpanAttributes(&event)...)
+		span.SetAttributes(eventSpanAttributes(&event, "RecordSendingEvent")...)
 	}
 
 	return ctx, func(errOrResult error) {
@@ -72,7 +72,7 @@ func (n OTelObservabilityService) RecordRequestEvent(ctx context.Context, event 
 	ctx, span := n.Tracer.Start(ctx, observability.ClientSpanName)
 
 	if span.IsRecording() {
-		span.SetAttributes(eventSpanAttributes(&event)...)
+		span.SetAttributes(eventSpanAttributes(&event, "RecordRequestEvent")...)
 	}
 
 	return ctx, func(errOrResult error, event *cloudevents.Event) {
@@ -114,8 +114,9 @@ func tracePropagatorContextDecorator(ctx context.Context, msg binding.Message) c
 	return trace.ContextWithSpan(ctx, span)
 }
 
-func eventSpanAttributes(e *cloudevents.Event) []attribute.KeyValue {
+func eventSpanAttributes(e *cloudevents.Event, method string) []attribute.KeyValue {
 	attr := []attribute.KeyValue{
+		attribute.String("method", method),
 		attribute.String(observability.SpecversionAttr, e.SpecVersion()),
 		attribute.String(observability.IdAttr, e.ID()),
 		attribute.String(observability.TypeAttr, e.Type()),
@@ -131,7 +132,7 @@ func eventSpanAttributes(e *cloudevents.Event) []attribute.KeyValue {
 }
 
 func recordSpanError(span trace.Span, errOrResult error) {
-	if protocol.IsACK(errOrResult) {
+	if protocol.IsACK(errOrResult) || !span.IsRecording() {
 		return
 	}
 
