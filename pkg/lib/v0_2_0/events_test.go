@@ -16,8 +16,7 @@ import (
 	"go.opentelemetry.io/otel"
 
 	"go.opentelemetry.io/otel/codes"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/oteltest"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
@@ -45,8 +44,13 @@ func getKeptnFields(ts *httptest.Server) fields {
 }
 
 func TestKeptn_SendCloudEventWithRetry(t *testing.T) {
-	sr := tracetest.NewSpanRecorder()
-	otel.SetTracerProvider(sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr)))
+
+	// TODO: oteltest is deprecated, we should use tracetest instead
+	// but that requires a dep on the sdk. So maybe we need to move the tests to their own module?
+	// like here: https://github.com/open-telemetry/opentelemetry-go-contrib/tree/main/instrumentation/net/http/otelhttp/test
+	sr := new(oteltest.SpanRecorder)
+	provider := oteltest.NewTracerProvider(oteltest.WithSpanRecorder(sr))
+	otel.SetTracerProvider(provider)
 
 	failOnFirstTry := true
 	ts := httptest.NewServer(
@@ -97,12 +101,12 @@ func TestKeptn_SendCloudEventWithRetry(t *testing.T) {
 			if err := k.SendCloudEvent(tt.args.event); (err != nil) != tt.wantErr {
 				t.Errorf("SendCloudEvent() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			spans := sr.Ended()
+			spans := sr.Completed()
 			assert.Len(t, spans, 2)
 
 			// the first span should have been recorded as error
-			assert.Equal(t, codes.Error, spans[0].Status().Code)
-			assert.Equal(t, codes.Unset, spans[1].Status().Code)
+			assert.Equal(t, codes.Error, spans[0].StatusCode())
+			assert.Equal(t, codes.Unset, spans[1].StatusCode())
 		})
 	}
 }
