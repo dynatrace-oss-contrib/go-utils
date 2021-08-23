@@ -56,7 +56,12 @@ func NewHTTPEventSender(endpoint string) (*HTTPEventSender, error) {
 	p, err := cloudevents.NewHTTP(
 		cloudevents.WithRoundTripper(otelhttp.NewTransport(http.DefaultTransport)),
 		cloudevents.WithMiddleware(func(next http.Handler) http.Handler {
-			return otelhttp.NewHandler(next, "incoming-event") //TODO: Define better naming for this?
+			//TODO: Check if we use the CloudEvent client to receive events (StartReceiver)
+			// If so, then we need this middleware in order to get context propagation to work
+			// inside the function that is called by the receiver
+
+			// If this is not used, then we probably can just use the transport to trace outgoing requests
+			return otelhttp.NewHandler(next, "incoming-event")
 		}),
 	)
 
@@ -64,6 +69,8 @@ func NewHTTPEventSender(endpoint string) (*HTTPEventSender, error) {
 		return nil, fmt.Errorf("failed to create protocol: %s", err.Error())
 	}
 
+	// the cloudevents HTTP client will invoke our observability service
+	// in certain moments (send event, receive event, etc) so we can record the traces
 	c, err := cloudevents.NewClient(
 		p, cloudevents.WithTimeNow(),
 		cloudevents.WithUUIDs(),
