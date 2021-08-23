@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/benbjohnson/clock"
-	"github.com/keptn/go-utils/pkg/api/models"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -14,6 +12,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/benbjohnson/clock"
+	"github.com/keptn/go-utils/pkg/api/models"
 )
 
 const v1LogPath = "/v1/log"
@@ -51,7 +52,7 @@ func NewLogHandler(baseURL string) *LogHandler {
 		BaseURL:      baseURL,
 		AuthHeader:   "",
 		AuthToken:    "",
-		HTTPClient:   &http.Client{Transport: getClientTransport()},
+		HTTPClient:   &http.Client{Transport: getInstrumentedClientTransport()},
 		Scheme:       "http",
 		LogCache:     []models.LogEntry{},
 		TheClock:     clock.New(),
@@ -63,7 +64,7 @@ func NewAuthenticatedLogHandler(baseURL string, authToken string, authHeader str
 	if httpClient == nil {
 		httpClient = &http.Client{}
 	}
-	httpClient.Transport = getClientTransport()
+	httpClient.Transport = getInstrumentedClientTransport()
 
 	baseURL = strings.TrimPrefix(baseURL, "http://")
 	baseURL = strings.TrimPrefix(baseURL, "https://")
@@ -129,6 +130,7 @@ func (lh *LogHandler) GetLogs(params models.GetLogsParams) (*models.GetLogsRespo
 
 	u.RawQuery = query.Encode()
 
+	// TODO: NewRequestWithContext in order to get proper traces
 	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		return nil, err
