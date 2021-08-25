@@ -116,7 +116,7 @@ func tracePropagatorContextDecorator(ctx context.Context, msg binding.Message) c
 
 func eventSpanAttributes(e *cloudevents.Event, method string) []attribute.KeyValue {
 	attr := []attribute.KeyValue{
-		attribute.String("method", method),
+		attribute.String(string(semconv.CodeFunctionKey), method),
 		attribute.String(observability.SpecversionAttr, e.SpecVersion()),
 		attribute.String(observability.IdAttr, e.ID()),
 		attribute.String(observability.TypeAttr, e.Type()),
