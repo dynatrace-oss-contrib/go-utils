@@ -32,15 +32,17 @@ func (n OTelObservabilityService) InboundContextDecorators() []func(context.Cont
 
 // Called by cloudevents internally when an invalid event was received
 func (n OTelObservabilityService) RecordReceivedMalformedEvent(ctx context.Context, err error) {
+	_, span := n.Tracer.Start(
+		ctx,
+		observability.ClientSpanName,
+		trace.WithAttributes(attribute.String(string(semconv.CodeFunctionKey), "RecordReceivedMalformedEvent")))
 
-	_, span := n.Tracer.Start(ctx, observability.ClientSpanName, trace.WithAttributes(attribute.String("method", "RecordReceivedMalformedEvent")))
 	span.RecordError(err)
 	span.End()
 }
 
 // Called by cloudevents internally before/after calling the invoker function on the server (StartReceiver)
 func (n OTelObservabilityService) RecordCallingInvoker(ctx context.Context, event *cloudevents.Event) (context.Context, func(errOrResult error)) {
-
 	ctx, span := n.Tracer.Start(ctx, observability.ClientSpanName)
 
 	if span.IsRecording() {
@@ -68,7 +70,6 @@ func (n OTelObservabilityService) RecordSendingEvent(ctx context.Context, event 
 }
 
 func (n OTelObservabilityService) RecordRequestEvent(ctx context.Context, event cloudevents.Event) (context.Context, func(errOrResult error, event *cloudevents.Event)) {
-
 	ctx, span := n.Tracer.Start(ctx, observability.ClientSpanName)
 
 	if span.IsRecording() {
