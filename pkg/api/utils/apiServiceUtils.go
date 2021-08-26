@@ -31,10 +31,7 @@ func getClientTransport() *http.Transport {
 // Wraps the provided http.RoundTripper with one that
 // starts a span and injects the span context into the outbound request headers.
 func getInstrumentedClientTransport() *otelhttp.Transport {
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	return otelhttp.NewTransport(tr)
+	return otelhttp.NewTransport(getClientTransport())
 }
 
 func putWithEventContext(uri string, data []byte, api APIService) (*models.EventContext, *models.Error) {
