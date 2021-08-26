@@ -24,13 +24,13 @@ type OTelObservabilityService struct {
 	Tracer         trace.Tracer
 }
 
-// When creating the cloudevent HTTP Client, by passing the option 'WithObservabilityService', the context
-// gets enriched with the incoming parent trace, thus enabling context propagation
-func (n OTelObservabilityService) InboundContextDecorators() []func(context.Context, binding.Message) context.Context {
+// InboundContextDecorators returns a decorator function that allows enriching the context with the incoming parent trace.
+// This method gets invoked automatically by passing the option 'WithObservabilityService' when creating the cloudevents HTTP client.
+func (os OTelObservabilityService) InboundContextDecorators() []func(context.Context, binding.Message) context.Context {
 	return []func(context.Context, binding.Message) context.Context{tracePropagatorContextDecorator}
 }
 
-// Called by cloudevents internally when an invalid event was received
+// RecordReceivedMalformedEvent records the error from a malformed event in the span.
 func (n OTelObservabilityService) RecordReceivedMalformedEvent(ctx context.Context, err error) {
 	_, span := n.Tracer.Start(
 		ctx,
@@ -41,9 +41,10 @@ func (n OTelObservabilityService) RecordReceivedMalformedEvent(ctx context.Conte
 	span.End()
 }
 
-// Called by cloudevents internally before/after calling the invoker function on the server (StartReceiver)
-func (n OTelObservabilityService) RecordCallingInvoker(ctx context.Context, event *cloudevents.Event) (context.Context, func(errOrResult error)) {
-	ctx, span := n.Tracer.Start(ctx, observability.ClientSpanName)
+// RecordCallingInvoker starts a new span before calling the invoker upon a received event.
+// In case the operation fails, the error is recorded and the span is marked as failed.
+func (os OTelObservabilityService) RecordCallingInvoker(ctx context.Context, event *cloudevents.Event) (context.Context, func(errOrResult error)) {
+	ctx, span := os.Tracer.Start(ctx, observability.ClientSpanName)
 
 	if span.IsRecording() {
 		span.SetAttributes(eventSpanAttributes(event, "RecordCallingInvoker")...)
@@ -55,8 +56,10 @@ func (n OTelObservabilityService) RecordCallingInvoker(ctx context.Context, even
 	}
 }
 
-func (n OTelObservabilityService) RecordSendingEvent(ctx context.Context, event cloudevents.Event) (context.Context, func(errOrResult error)) {
-	ctx, span := n.Tracer.Start(ctx, observability.ClientSpanName)
+// RecordSendingEvent starts a new span before sending the event.
+// In case the operation fails, the error is recorded and the span is marked as failed.
+func (os OTelObservabilityService) RecordSendingEvent(ctx context.Context, event cloudevents.Event) (context.Context, func(errOrResult error)) {
+	ctx, span := os.Tracer.Start(ctx, observability.ClientSpanName)
 
 	// TODO: Should we add more things here? What about sensitive information?
 	if span.IsRecording() {
@@ -69,8 +72,10 @@ func (n OTelObservabilityService) RecordSendingEvent(ctx context.Context, event 
 	}
 }
 
-func (n OTelObservabilityService) RecordRequestEvent(ctx context.Context, event cloudevents.Event) (context.Context, func(errOrResult error, event *cloudevents.Event)) {
-	ctx, span := n.Tracer.Start(ctx, observability.ClientSpanName)
+// RecordRequestEvent starts a new span before transmitting the given.
+// In case the operation fails, the error is recorded and the span is marked as failed.
+func (os OTelObservabilityService) RecordRequestEvent(ctx context.Context, event cloudevents.Event) (context.Context, func(errOrResult error, event *cloudevents.Event)) {
+	ctx, span := os.Tracer.Start(ctx, observability.ClientSpanName)
 
 	if span.IsRecording() {
 		span.SetAttributes(eventSpanAttributes(&event, "RecordRequestEvent")...)
@@ -82,7 +87,7 @@ func (n OTelObservabilityService) RecordRequestEvent(ctx context.Context, event 
 	}
 }
 
-// Returns a OpenTelemetry aware observability service
+// NewOTelObservabilityService returns a OpenTelemetry enabled observability service
 func NewOTelObservabilityService() *OTelObservabilityService {
 	s := &OTelObservabilityService{
 		TracerProvider: otel.GetTracerProvider(),
@@ -96,7 +101,7 @@ func NewOTelObservabilityService() *OTelObservabilityService {
 	return s
 }
 
-// Extracts the traceparent from the msg and creates the proper context to enable propagation
+// Extracts the traceparent from the msg and enriches the context to enable propagation
 func tracePropagatorContextDecorator(ctx context.Context, msg binding.Message) context.Context {
 	var messageCtx context.Context
 	if mctx, ok := msg.(binding.MessageContext); ok {
