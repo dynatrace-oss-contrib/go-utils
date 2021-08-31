@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cloudevents/sdk-go/v2/client"
+	"github.com/cloudevents/sdk-go/v2/extensions"
 	"github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/google/uuid"
 	"github.com/keptn/go-utils/config"
@@ -423,6 +424,13 @@ func ToCloudEvent(keptnEvent models.KeptnContextExtendedCE) cloudevents.Event {
 	event.SetExtension(keptnContextCEExtension, keptnEvent.Shkeptncontext)
 	event.SetExtension(triggeredIDCEExtension, keptnEvent.Triggeredid)
 	event.SetExtension(keptnSpecVersionCEExtension, keptnEvent.Shkeptnspecversion)
+
+	dte := extensions.DistributedTracingExtension{
+		TraceParent: keptnEvent.TraceParent,
+		TraceState:  keptnEvent.TraceState,
+	}
+	dte.AddTracingAttributes(&event)
+
 	return event
 }
 
@@ -451,6 +459,11 @@ func ToKeptnEvent(event cloudevents.Event) (models.KeptnContextExtendedCE, error
 		Time:               event.Time(),
 		Triggeredid:        triggeredID,
 		Type:               strutils.Stringp(event.Type()),
+	}
+
+	if dte, ok := extensions.GetDistributedTracingExtension(event); ok {
+		keptnEvent.TraceParent = dte.TraceParent
+		keptnEvent.TraceState = dte.TraceState
 	}
 
 	return keptnEvent, nil

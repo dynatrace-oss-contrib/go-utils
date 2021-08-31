@@ -20,6 +20,8 @@ func TestKeptnContextExtendedCE_Validate(t *testing.T) {
 		Time               time.Time
 		Triggeredid        string
 		Type               *string
+		TraceParent        string
+		TraceState         string
 	}
 	tests := []struct {
 		name    string
@@ -71,6 +73,18 @@ func TestKeptnContextExtendedCE_Validate(t *testing.T) {
 				Type: &eventType,
 			},
 			wantErr: true,
+		},
+		{
+			name: "with traceparent and tracestate",
+			fields: fields{
+				ID:          "my-id",
+				Source:      &source,
+				Time:        time.Now(),
+				Type:        &eventType,
+				TraceParent: "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-aaaaaaaaaaaaaaaa-00",
+				TraceState:  "key1=value1",
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {

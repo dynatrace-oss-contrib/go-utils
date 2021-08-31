@@ -19,6 +19,7 @@ import (
 	"go.opentelemetry.io/otel/oteltest"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/extensions"
 )
 
 type fields struct {
@@ -340,6 +341,12 @@ func TestToCloudEvent(t *testing.T) {
 	expected.SetExtension(triggeredIDCEExtension, "my-triggered-id")
 	expected.SetExtension(keptnSpecVersionCEExtension, config.GetKeptnGoUtilsConfig().ShKeptnSpecVersion)
 
+	dte := extensions.DistributedTracingExtension{
+		TraceParent: "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-aaaaaaaaaaaaaaaa-00",
+		TraceState:  "key1=value1",
+	}
+	dte.AddTracingAttributes(&expected)
+
 	keptnEvent := models.KeptnContextExtendedCE{
 		Contenttype:        "application/json",
 		Data:               TestData{Content: "testdata"},
@@ -350,6 +357,8 @@ func TestToCloudEvent(t *testing.T) {
 		Specversion:        defaultSpecVersion,
 		Triggeredid:        "my-triggered-id",
 		Type:               strutils.Stringp("sh.keptn.event.dev.delivery.triggered"),
+		TraceParent:        dte.TraceParent,
+		TraceState:         dte.TraceState,
 	}
 	cloudevent := ToCloudEvent(keptnEvent)
 	assert.Equal(t, expected, cloudevent)
@@ -373,6 +382,8 @@ func TestToKeptnEvent(t *testing.T) {
 		Triggeredid:        "my-triggered-id",
 		Type:               strutils.Stringp("sh.keptn.event.dev.delivery.triggered"),
 		Time:               time.Time{},
+		TraceParent:        "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-aaaaaaaaaaaaaaaa-00",
+		TraceState:         "key1=value1",
 	}
 
 	ce := cloudevents.NewEvent()
@@ -385,6 +396,12 @@ func TestToKeptnEvent(t *testing.T) {
 	ce.SetExtension(keptnContextCEExtension, "my-keptn-context")
 	ce.SetExtension(triggeredIDCEExtension, "my-triggered-id")
 	ce.SetExtension(keptnSpecVersionCEExtension, config.GetKeptnGoUtilsConfig().ShKeptnSpecVersion)
+
+	dte := extensions.DistributedTracingExtension{
+		TraceParent: "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-aaaaaaaaaaaaaaaa-00",
+		TraceState:  "key1=value1",
+	}
+	dte.AddTracingAttributes(&ce)
 
 	keptnEvent, err := ToKeptnEvent(ce)
 
