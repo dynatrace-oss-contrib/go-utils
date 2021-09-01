@@ -13,11 +13,11 @@ type CloudEventCarrier struct {
 	Extension *extensions.DistributedTracingExtension
 }
 
-func newCloudEventCarrier() CloudEventCarrier {
+func NewCloudEventCarrier() CloudEventCarrier {
 	return CloudEventCarrier{Extension: &extensions.DistributedTracingExtension{}}
 }
 
-func newCloudEventCarrierWithEvent(event cloudevents.Event) CloudEventCarrier {
+func NewCloudEventCarrierWithEvent(event cloudevents.Event) CloudEventCarrier {
 	var te, ok = extensions.GetDistributedTracingExtension(event)
 	if !ok {
 		return CloudEventCarrier{Extension: &extensions.DistributedTracingExtension{}}
@@ -57,9 +57,9 @@ func InjectDistributedTracingExtension(ctx context.Context, event cloudevents.Ev
 
 	// TODO: Should we validate if there's already a tracecontext in the event?
 	// Calling it will override any existing value..
-	tc := newCloudEventTraceContext()
-	carrier := newCloudEventCarrier()
-	tc.inject(ctx, carrier)
+	tc := NewCloudEventTraceContext()
+	carrier := NewCloudEventCarrier()
+	tc.Inject(ctx, carrier)
 	carrier.Extension.AddTracingAttributes(&event)
 }
 
@@ -69,31 +69,31 @@ func InjectDistributedTracingExtension(ctx context.Context, event cloudevents.Ev
 // tracecontext as the remote SpanContext. If the extracted tracecontext is
 // invalid, the passed ctx will be returned directly instead.
 func ExtractDistributedTracingExtension(ctx context.Context, event cloudevents.Event) context.Context {
-	tc := newCloudEventTraceContext()
-	carrier := newCloudEventCarrierWithEvent(event)
+	tc := NewCloudEventTraceContext()
+	carrier := NewCloudEventCarrierWithEvent(event)
 
-	ctx = tc.extract(ctx, carrier)
+	ctx = tc.Extract(ctx, carrier)
 
 	return ctx
 }
 
-// cloudEventTraceContext a wrapper around the OpenTelemetry TraceContext
+// CloudEventTraceContext a wrapper around the OpenTelemetry TraceContext
 // https://github.com/open-telemetry/opentelemetry-go/blob/main/propagation/trace_context.go
-type cloudEventTraceContext struct {
+type CloudEventTraceContext struct {
 	traceContext propagation.TraceContext
 }
 
-func newCloudEventTraceContext() cloudEventTraceContext {
-	return cloudEventTraceContext{traceContext: propagation.TraceContext{}}
+func NewCloudEventTraceContext() CloudEventTraceContext {
+	return CloudEventTraceContext{traceContext: propagation.TraceContext{}}
 }
 
-// extract extracts the tracecontext from the cloud event into the context.
+// Extract extracts the tracecontext from the cloud event into the context.
 //
 // If the context has a recording span, then the same context is returned. If not, then the extraction
 // from the cloud event happens. The reason for this is to avoid breaking the span order in the trace.
 // For instrumented clients, the context *should* have the incoming span from the auto-instrumented library
 // thus using this one is more appropriate.
-func (etc cloudEventTraceContext) extract(ctx context.Context, carrier CloudEventCarrier) context.Context {
+func (etc CloudEventTraceContext) Extract(ctx context.Context, carrier CloudEventCarrier) context.Context {
 	// TODO: Is there a better way to check if ctx already has a current span on it?
 	span := trace.SpanFromContext(ctx)
 	if span.IsRecording() {
@@ -107,7 +107,7 @@ func (etc cloudEventTraceContext) extract(ctx context.Context, carrier CloudEven
 	return etc.traceContext.Extract(ctx, carrier)
 }
 
-// inject injects the current tracecontext from the context into the cloud event
-func (etc cloudEventTraceContext) inject(ctx context.Context, carrier CloudEventCarrier) {
+// Inject injects the current tracecontext from the context into the cloud event
+func (etc CloudEventTraceContext) Inject(ctx context.Context, carrier CloudEventCarrier) {
 	etc.traceContext.Inject(ctx, carrier)
 }
