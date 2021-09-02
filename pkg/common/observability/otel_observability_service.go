@@ -2,6 +2,7 @@ package observability
 
 import (
 	"context"
+	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
@@ -16,7 +17,10 @@ import (
 
 const (
 	// TODO: What should we put here?
-	instrumentationName = "github.com/keptn/go-utils/observability/cloudevents"
+	instrumentationName         = "github.com/keptn/go-utils/observability/cloudevents"
+	keptnContextCEExtension     = "shkeptncontext"
+	keptnSpecVersionCEExtension = "shkeptnspecversion"
+	triggeredIDCEExtension      = "triggeredid"
 )
 
 type OTelObservabilityService struct {
@@ -32,9 +36,10 @@ func (os OTelObservabilityService) InboundContextDecorators() []func(context.Con
 
 // RecordReceivedMalformedEvent records the error from a malformed event in the span.
 func (n OTelObservabilityService) RecordReceivedMalformedEvent(ctx context.Context, err error) {
+	spanName := fmt.Sprintf("%s receive", observability.ClientSpanName)
 	_, span := n.Tracer.Start(
 		ctx,
-		observability.ClientSpanName,
+		spanName,
 		trace.WithAttributes(attribute.String(string(semconv.CodeFunctionKey), "RecordReceivedMalformedEvent")))
 
 	span.RecordError(err)
@@ -44,7 +49,10 @@ func (n OTelObservabilityService) RecordReceivedMalformedEvent(ctx context.Conte
 // RecordCallingInvoker starts a new span before calling the invoker upon a received event.
 // In case the operation fails, the error is recorded and the span is marked as failed.
 func (os OTelObservabilityService) RecordCallingInvoker(ctx context.Context, event *cloudevents.Event) (context.Context, func(errOrResult error)) {
-	ctx, span := os.Tracer.Start(ctx, observability.ClientSpanName)
+	spanName := fmt.Sprintf("%s.%s receive", observability.ClientSpanName, event.Context.GetType())
+
+	// span name will be: cloudevents.client.sh.keptn.event.hardening.evaluation.triggered send
+	ctx, span := os.Tracer.Start(ctx, spanName, trace.WithSpanKind(trace.SpanKindConsumer))
 
 	if span.IsRecording() {
 		span.SetAttributes(eventSpanAttributes(event, "RecordCallingInvoker")...)
@@ -59,7 +67,8 @@ func (os OTelObservabilityService) RecordCallingInvoker(ctx context.Context, eve
 // RecordSendingEvent starts a new span before sending the event.
 // In case the operation fails, the error is recorded and the span is marked as failed.
 func (os OTelObservabilityService) RecordSendingEvent(ctx context.Context, event cloudevents.Event) (context.Context, func(errOrResult error)) {
-	ctx, span := os.Tracer.Start(ctx, observability.ClientSpanName)
+	spanName := fmt.Sprintf("%s.%s send", observability.ClientSpanName, event.Context.GetType())
+	ctx, span := os.Tracer.Start(ctx, spanName, trace.WithSpanKind(trace.SpanKindProducer))
 
 	// TODO: Should we add more things here? What about sensitive information?
 	if span.IsRecording() {
@@ -75,7 +84,8 @@ func (os OTelObservabilityService) RecordSendingEvent(ctx context.Context, event
 // RecordRequestEvent starts a new span before transmitting the given.
 // In case the operation fails, the error is recorded and the span is marked as failed.
 func (os OTelObservabilityService) RecordRequestEvent(ctx context.Context, event cloudevents.Event) (context.Context, func(errOrResult error, event *cloudevents.Event)) {
-	ctx, span := os.Tracer.Start(ctx, observability.ClientSpanName)
+	spanName := fmt.Sprintf("%s.%s process", observability.ClientSpanName, event.Context.GetType())
+	ctx, span := os.Tracer.Start(ctx, spanName, trace.WithSpanKind(trace.SpanKindConsumer))
 
 	if span.IsRecording() {
 		span.SetAttributes(eventSpanAttributes(&event, "RecordRequestEvent")...)
@@ -133,6 +143,9 @@ func eventSpanAttributes(e *cloudevents.Event, method string) []attribute.KeyVal
 	}
 	if dct := e.DataContentType(); dct != "" {
 		attr = append(attr, attribute.String(observability.DatacontenttypeAttr, dct))
+	}
+	if keptnContext, err := e.Context.GetExtension("shkeptncontext"); err == nil {
+		attr = append(attr, attribute.String("shkeptncontext", keptnContext.(string)))
 	}
 	return attr
 }

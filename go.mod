@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/benbjohnson/clock v1.1.0
-	github.com/cloudevents/sdk-go/v2 v2.4.1
+	github.com/cloudevents/sdk-go/v2 v2.4.1-0.20210901163322-e1371d2928c5
 	github.com/google/uuid v1.3.0
 	github.com/stretchr/testify v1.7.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.22.0
