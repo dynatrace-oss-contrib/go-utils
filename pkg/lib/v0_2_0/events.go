@@ -47,6 +47,10 @@ type HTTPEventSender struct {
 	EventsEndpoint string
 	// Client is an implementation of the cloudevents.Client interface
 	Client cloudevents.Client
+
+	// Context to be used when calling SendEvent on the sender
+	// Only to be used when a new eventsender is created per request/event
+	Context context.Context
 }
 
 // NewHTTPEventSender creates a new HTTPSender
@@ -91,7 +95,15 @@ func NewHTTPEventSender(endpoint string) (*HTTPEventSender, error) {
 
 // SendEvent sends a CloudEvent
 func (httpSender HTTPEventSender) SendEvent(event cloudevents.Event) error {
-	ctx := cloudevents.ContextWithTarget(context.Background(), httpSender.EventsEndpoint)
+	ctx := context.Background()
+
+	// If we have a context, use that instead since it most likely
+	// contains the tracecontext information.
+	if httpSender.Context != nil {
+		ctx = httpSender.Context
+	}
+
+	ctx = cloudevents.ContextWithTarget(ctx, httpSender.EventsEndpoint)
 	ctx = cloudevents.WithEncodingStructured(ctx)
 	return httpSender.Send(ctx, event)
 }
