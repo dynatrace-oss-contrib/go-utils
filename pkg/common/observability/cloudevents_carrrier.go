@@ -13,10 +13,13 @@ type CloudEventCarrier struct {
 	Extension *extensions.DistributedTracingExtension
 }
 
+// NewCloudEventCarrier creates a new CloudEventCarrier with an empty distributed tracing extension
 func NewCloudEventCarrier() CloudEventCarrier {
 	return CloudEventCarrier{Extension: &extensions.DistributedTracingExtension{}}
 }
 
+// NewCloudEventCarrierWithEvent creates a new CloudEventCarrier with a distributed tracing extension
+// populated with the trace data from the event
 func NewCloudEventCarrierWithEvent(event cloudevents.Event) CloudEventCarrier {
 	var te, ok = extensions.GetDistributedTracingExtension(event)
 	if !ok {

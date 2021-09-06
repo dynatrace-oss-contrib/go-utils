@@ -13,6 +13,7 @@ type CloudEventTraceContext struct {
 	traceContext propagation.TraceContext
 }
 
+// NewCloudEventTraceContext creates a new CloudEventTraceContext
 func NewCloudEventTraceContext() CloudEventTraceContext {
 	return CloudEventTraceContext{traceContext: propagation.TraceContext{}}
 }

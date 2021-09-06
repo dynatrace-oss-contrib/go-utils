@@ -23,6 +23,7 @@ const (
 	triggeredIDCEExtension      = "triggeredid"
 )
 
+// OTelObservabilityService implements the ObservabilityService interface from cloudevents
 type OTelObservabilityService struct {
 	TracerProvider trace.TracerProvider
 	Tracer         trace.Tracer
@@ -35,9 +36,9 @@ func (os OTelObservabilityService) InboundContextDecorators() []func(context.Con
 }
 
 // RecordReceivedMalformedEvent records the error from a malformed event in the span.
-func (n OTelObservabilityService) RecordReceivedMalformedEvent(ctx context.Context, err error) {
+func (os OTelObservabilityService) RecordReceivedMalformedEvent(ctx context.Context, err error) {
 	spanName := fmt.Sprintf("%s receive", observability.ClientSpanName)
-	_, span := n.Tracer.Start(
+	_, span := os.Tracer.Start(
 		ctx,
 		spanName,
 		trace.WithAttributes(attribute.String(string(semconv.CodeFunctionKey), "RecordReceivedMalformedEvent")))
