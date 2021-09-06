@@ -68,29 +68,29 @@ func TestExtractTraceContextFromEvent(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 
-			ctx := context.Background()
+			expectedCtx := context.Background()
 
 			if tc.contextHasTraceContext {
 				// Simulates a case of a auto-instrumented client where the context
 				// has the incoming parent span + the new span started by the auto-instrumented library (e.g Http)
-				ctx = prop.Extract(ctx, propagation.HeaderCarrier(tc.header))
-				ctx, span := tracer.Start(ctx, "http-autoinstrumentation")
+				expectedCtx = prop.Extract(expectedCtx, propagation.HeaderCarrier(tc.header))
+				expectedCtx, span := tracer.Start(expectedCtx, "http-autoinstrumentation")
 
 				// act
-				newCtx := ExtractDistributedTracingExtension(ctx, tc.event)
+				actualCtx := ExtractDistributedTracingExtension(expectedCtx, tc.event)
 
 				// Because the ctx already had a traceContext, the new should be the same
-				assert.Equal(t, trace.SpanContextFromContext(ctx), trace.SpanContextFromContext(newCtx))
+				assert.Equal(t, trace.SpanContextFromContext(expectedCtx), trace.SpanContextFromContext(actualCtx))
 				span.End()
 			} else {
 
 				// act
-				newCtx := ExtractDistributedTracingExtension(ctx, tc.event)
+				actualCtx := ExtractDistributedTracingExtension(expectedCtx, tc.event)
 
 				// the new context was enriched with the traceparent from the event
-				assert.NotEqual(t, trace.SpanContextFromContext(ctx), trace.SpanContextFromContext(newCtx))
+				assert.NotEqual(t, trace.SpanContextFromContext(expectedCtx), trace.SpanContextFromContext(actualCtx))
 
-				sc := trace.SpanContextFromContext(newCtx)
+				sc := trace.SpanContextFromContext(actualCtx)
 
 				// tracecontext should be the same as in the event
 				assert.Equal(t, eventTraceID, sc.TraceID().String())
