@@ -48,8 +48,13 @@ type HTTPEventSender struct {
 	// Client is an implementation of the cloudevents.Client interface
 	Client cloudevents.Client
 
-	// Context to be used when calling SendEvent on the sender
-	// Only to be used when a new eventsender is created per request/event
+	// Context to be used when calling SendEvent on the sender.
+	//
+	// This field is intended to be used only when an HTTPEventSender is created
+	// every time a new event is received.
+	// Used as a POC to propagate the context for OpenTelemetry instrumentation.
+	// The best solution would be that each method/func accepted a Context parameter
+	// but for now this is not possible due to breaking changes.
 	Context context.Context
 }
 
@@ -61,12 +66,10 @@ func NewHTTPEventSender(endpoint string) (*HTTPEventSender, error) {
 	p, err := cloudevents.NewHTTP(
 		cloudevents.WithRoundTripper(otelhttp.NewTransport(http.DefaultTransport)),
 		cloudevents.WithMiddleware(func(next http.Handler) http.Handler {
-			//TODO: Check if we use the CloudEvent client to receive events (StartReceiver)
-			// If so, then we need this middleware in order to get context propagation to work
-			// inside the function that is called by the receiver
-
-			// If this is not used, then we probably can just use the transport to trace outgoing requests
-			return otelhttp.NewHandler(next, "incoming-event")
+			// the middleware will ensure that the traceparent is injected into the context
+			// that is passed to the StartReceiver handler func
+			// https://github.com/cloudevents/sdk-go/pull/708
+			return otelhttp.NewHandler(next, "receive")
 		}),
 	)
 
@@ -75,7 +78,7 @@ func NewHTTPEventSender(endpoint string) (*HTTPEventSender, error) {
 	}
 
 	// the cloudevents HTTP client will invoke our observability service
-	// in certain moments (send event, receive event, etc) so we can record the traces
+	// in certain moments (send event, receive event, etc) so we can record the spans
 	c, err := cloudevents.NewClient(
 		p, cloudevents.WithTimeNow(),
 		cloudevents.WithUUIDs(),
@@ -97,8 +100,11 @@ func NewHTTPEventSender(endpoint string) (*HTTPEventSender, error) {
 func (httpSender HTTPEventSender) SendEvent(event cloudevents.Event) error {
 	ctx := context.Background()
 
+	// TODO: Callers should be using the Send method below. Unfortunately it is not easy to change everything
+	// so this still needs to be here until a new API is introduced that requires passing the context object.
+
 	// If we have a context, use that instead since it most likely
-	// contains the tracecontext information.
+	// contains the current tracecontext information.
 	if httpSender.Context != nil {
 		ctx = httpSender.Context
 	}
