@@ -52,7 +52,7 @@ func NewLogHandler(baseURL string) *LogHandler {
 		BaseURL:      baseURL,
 		AuthHeader:   "",
 		AuthToken:    "",
-		HTTPClient:   &http.Client{Transport: getInstrumentedClientTransport()},
+		HTTPClient:   &http.Client{Transport: getClientTransport()},
 		Scheme:       "http",
 		LogCache:     []models.LogEntry{},
 		TheClock:     clock.New(),
@@ -64,7 +64,7 @@ func NewAuthenticatedLogHandler(baseURL string, authToken string, authHeader str
 	if httpClient == nil {
 		httpClient = &http.Client{}
 	}
-	httpClient.Transport = getInstrumentedClientTransport()
+	httpClient.Transport = getClientTransport()
 
 	baseURL = strings.TrimPrefix(baseURL, "http://")
 	baseURL = strings.TrimPrefix(baseURL, "https://")
@@ -130,7 +130,6 @@ func (lh *LogHandler) GetLogs(params models.GetLogsParams) (*models.GetLogsRespo
 
 	u.RawQuery = query.Encode()
 
-	// TODO: NewRequestWithContext in order to get proper traces
 	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		return nil, err
