@@ -5,10 +5,10 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/extensions"
-	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/trace"
 )
 
+// CloudEventCarrier adapts the distributed trace extension to satisfy the TextMapCarrier interface.
+// https://github.com/open-telemetry/opentelemetry-go/blob/4bfa00347d52e655899b13054198c0aefbd67f85/propagation/propagation.go#L23
 type CloudEventCarrier struct {
 	Extension *extensions.DistributedTracingExtension
 }
@@ -75,39 +75,4 @@ func ExtractDistributedTracingExtension(ctx context.Context, event cloudevents.E
 	ctx = tc.Extract(ctx, carrier)
 
 	return ctx
-}
-
-// CloudEventTraceContext a wrapper around the OpenTelemetry TraceContext
-// https://github.com/open-telemetry/opentelemetry-go/blob/main/propagation/trace_context.go
-type CloudEventTraceContext struct {
-	traceContext propagation.TraceContext
-}
-
-func NewCloudEventTraceContext() CloudEventTraceContext {
-	return CloudEventTraceContext{traceContext: propagation.TraceContext{}}
-}
-
-// Extract extracts the tracecontext from the cloud event into the context.
-//
-// If the context has a recording span, then the same context is returned. If not, then the extraction
-// from the cloud event happens. The reason for this is to avoid breaking the span order in the trace.
-// For instrumented clients, the context *should* have the incoming span from the auto-instrumented library
-// thus using this one is more appropriate.
-func (etc CloudEventTraceContext) Extract(ctx context.Context, carrier CloudEventCarrier) context.Context {
-	// TODO: Is there a better way to check if ctx already has a current span on it?
-	span := trace.SpanFromContext(ctx)
-	if span.IsRecording() {
-		// if the context already has an active span so just return that
-		return ctx
-	}
-
-	// Extracts the traceparent from the cloud event into the context
-	// This is useful when there's no context (reading from the queue in a long running process)
-	// In this case we can use the traceparent from the event to continue the trace flow.
-	return etc.traceContext.Extract(ctx, carrier)
-}
-
-// Inject injects the current tracecontext from the context into the cloud event
-func (etc CloudEventTraceContext) Inject(ctx context.Context, carrier CloudEventCarrier) {
-	etc.traceContext.Inject(ctx, carrier)
 }
