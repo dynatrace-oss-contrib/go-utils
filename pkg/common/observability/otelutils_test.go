@@ -1,6 +1,7 @@
 package observability
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
@@ -35,14 +36,16 @@ func TestCreateTraceProvider(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			os.Setenv(EnvVarOTelCollectorEndpoint, tc.collectorEndpoint)
 
-			shutdown := InitOTelTraceProvider("my-service", tc.collectorEndpoint)
+			shutdown := InitOTelTraceProvider("my-service")
 			tp := otel.GetTracerProvider()
 
 			assert.NotNil(t, tp)
 			assert.Equal(t, tc.wantTraceProviderType, reflect.TypeOf(tp).String())
 
 			shutdown()
+			os.Setenv(EnvVarOTelCollectorEndpoint, "")
 		})
 	}
 }

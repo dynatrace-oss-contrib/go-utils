@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/url"
 
+	"github.com/keptn/go-utils/pkg/common/osutils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
@@ -14,11 +15,17 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// InitOTelTraceProvider configures the OpenTelemetry SDK
+// EnvVarOTelCollectorEndpoint the env var containing the OpenTelemetry Collector endpoint
+const EnvVarOTelCollectorEndpoint = "OTEL_COLLECTOR_ENDPOINT"
+
+// InitOTelTraceProvider configures the OpenTelemetry SDK to export the spans to collector via OTLP/GRPC
 //
-// The SDK is configured to export the spans to a OpenTelemetry collector via OTLP/GRPC.
-func InitOTelTraceProvider(serviceName, collectorGrpcEndpoint string) func() {
+// The SDK uses the collector endpoint defined in the environment variable: OTEL_COLLECTOR_ENDPOINT
+// The environment variable can be set by adding it to the values.yaml file and doing a `helm upgrade`.
+func InitOTelTraceProvider(serviceName string) func() {
 	ctx := context.Background()
+
+	collectorGrpcEndpoint := osutils.GetOSEnv(EnvVarOTelCollectorEndpoint)
 
 	_, err := url.ParseRequestURI(collectorGrpcEndpoint)
 	if err != nil {
@@ -26,8 +33,12 @@ func InitOTelTraceProvider(serviceName, collectorGrpcEndpoint string) func() {
 		return func() {}
 	}
 
+	// TODO: Depending how the collector is deployed, we might need
+	// more things to be able to talk to it (authorization for ex).
+	// So most likely we will need to more settings for it. For now, we are assuming
+	// that there's a local collector running inside the cluster.
 	traceExporter, err := otlptracegrpc.New(ctx,
-		otlptracegrpc.WithInsecure(), // TODO: This shouldn't be a problem if its expected to be running inside the cluster and not exposed?
+		otlptracegrpc.WithInsecure(),
 		otlptracegrpc.WithEndpoint(collectorGrpcEndpoint),
 	)
 	if err != nil {
