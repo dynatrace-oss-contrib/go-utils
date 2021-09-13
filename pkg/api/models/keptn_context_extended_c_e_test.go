@@ -101,6 +101,8 @@ func TestKeptnContextExtendedCE_Validate(t *testing.T) {
 				Time:               tt.fields.Time,
 				Triggeredid:        tt.fields.Triggeredid,
 				Type:               tt.fields.Type,
+				TraceParent:        tt.fields.TraceParent,
+				TraceState:         tt.fields.TraceState,
 			}
 			if err := ce.Validate(); (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
